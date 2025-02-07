@@ -1,0 +1,65 @@
+@Library Utils
+
+class Math {
+Private:
+    // Helper function to find the integer part of the square root using binary search
+    def findIntegerPart(number: long): long {
+        if (number < 0) { 
+            error("Input must be non-negative for sqrt"); 
+        }
+        if (number == 0 || number == 1) { 
+            return number; 
+        }
+        
+        let low: long = 1, high: long = number;
+        let result: long = 0;
+        
+        while (low <= high) {
+            let mid: long = (low + high) / 2;
+            let midSquared: long = mid * mid;
+            
+            if (midSquared == number) { 
+                return mid; 
+            }
+            elif (midSquared < number) {
+                low = mid + 1;
+                result = mid;
+            } else { 
+                high = mid - 1; 
+            }
+        }
+        
+        return result;
+    }
+    
+    // Internal function to calculate the square root with a specified precision
+    def sqrtBase(number: long, precision: int): double {
+        let integerPart: long = findIntegerPart(number);
+        let result: double = integerPart;
+        
+        if (precision > 0) {
+            let decimalStep: double = 0.1;
+            
+            for (let i: int = 0; i < precision; ++i) {
+                while (result * result <= number) { 
+                    result += decimalStep; 
+                }
+                
+                result -= decimalStep; // Step back to the last valid value
+                decimalStep /= 10; // Move to the next decimal place
+            }
+        }
+        
+        return result;
+    }
+    
+Public:
+    // Public function to calculate the square root with a default precision of 15
+    def sqrt(number: long): double {
+        return sqrtBase(number, 15);
+    }
+}
+
+// Example usage
+let result: double = Utils.Math.sqrt(20);
+print(result); // Output: 4.472135954999579
