@@ -18,14 +18,14 @@ public class Lexer {
     private static final Map<String, TokenType> keywords = new HashMap<>();
     private static final Map<String, TokenType> unaryOperators = new HashMap<>();
     private static final Map<String, TokenType> binary_comparativeOperators = new HashMap<>();
-    private static final Map<Character, TokenType> symbols = new HashMap<>();
+    private static final Map<String, TokenType> symbols = new HashMap<>();
 
     private static final List<String> booleanValues = new ArrayList<>();
     private static final List<String> dataTypes = new ArrayList<>();
 
     static {
         final List<String> keywordStrings = List.of("Library", "class", "Private", "Public", "let",
-                "def", "if", "while", "for", "exit", "print", "return", "this");
+                "def", "if", "while", "for", "exit", "print", "return", "this", "elif", "error");
 
         final List<String> unaryOperatorStrings = List.of("-", "+", "!", "&", "*", "+=", "-=", "*=", "/=",
                 "^=", "%=", "++", "--");
@@ -33,11 +33,11 @@ public class Lexer {
         final List<String> binary_comparativeOperatorStrings = List.of("+", "-", "*", "/", "^", "%", "<",
                 ">", "==", "<=", ">=", "!=", "&&", "||");
 
-        final List<Character> symbolStrings = List.of('(', ')', '[', ']', '{', '}', ',', '.', ':', ';', '=');
+        final List<String> symbolStrings = List.of("(", ")", "[", "]", "{", "}", ",", ".", ":", ";", "=", "@");
 
         final List<TokenType> keywordTypes = List.of(TokenType.Library, TokenType.Class, TokenType.Private,
                 TokenType.Public, TokenType.Let, TokenType.Def, TokenType.If, TokenType.While, TokenType.For,
-                TokenType.Exit, TokenType.Print, TokenType.Return, TokenType.This);
+                TokenType.Exit, TokenType.Print, TokenType.Return, TokenType.This, TokenType.Elif, TokenType.Error);
 
         final List<TokenType> binary_comparativeOperatorTypes = List.of(TokenType.BinaryOperator,
                 TokenType.BinaryOperator, TokenType.BinaryOperator, TokenType.BinaryOperator, TokenType.BinaryOperator,
@@ -47,7 +47,7 @@ public class Lexer {
 
         final List<TokenType> symbolTypes = List.of(TokenType.OpenParen, TokenType.CloseParen, TokenType.OpenBracket,
                 TokenType.CloseBracket, TokenType.OpenBrace, TokenType.CloseBrace, TokenType.Comma, TokenType.Dot,
-                TokenType.Colon, TokenType.SemiColon, TokenType.Equals);
+                TokenType.Colon, TokenType.SemiColon, TokenType.Equals, TokenType.At);
 
         final List<String> booleanStrings = List.of("True", "true", "False", "false");
 
@@ -65,8 +65,8 @@ public class Lexer {
             binary_comparativeOperators.put(string, binary_comparativeOperatorTypes.get(binary_comparativeOperatorStrings.indexOf(string)));
         }
 
-        for(Character character : symbolStrings) {
-            symbols.put(character, symbolTypes.get(symbolStrings.indexOf(character)));
+        for(String string : symbolStrings) {
+            symbols.put(string, symbolTypes.get(symbolStrings.indexOf(string)));
         }
 
         booleanValues.addAll(booleanStrings);
@@ -77,11 +77,11 @@ public class Lexer {
 
     private int index = 0;
     private int currentLine = 1;
-    private int currentColumn = 0;
+    private int currentColumn = 1;
     private int holdPastColumn;
     private String buffer = "";
 
-    private List<Token> tokens = new ArrayList<>();
+    private final List<Token> tokens = new ArrayList<>();
 
     public Lexer() {}
     public Lexer(String src) { this.src = src; }
@@ -98,10 +98,14 @@ public class Lexer {
             if(peek(0) == '\n') {
                 ++currentLine;
                 holdPastColumn = currentColumn;
-                currentColumn = 0;
+                currentColumn = 1;
             } else ++currentColumn;
 
-            if(i == amount - 1) returnCharacter = src.charAt(index);
+            try {
+                if (i == amount - 1) returnCharacter = src.charAt(index);
+            } catch(Exception e) {
+                returnCharacter = '\0';
+            }
             ++index;
 
             if(index >= src.length()) return '\0';
@@ -125,15 +129,17 @@ public class Lexer {
 
     private void lexAlpha() {
         Position[] TokenLocation = new Position[2];
+        TokenLocation[0] = new Position();
+        TokenLocation[1] = new Position();
         int[] TokenRange = new int[2];
 
         TokenLocation[0].setLine(currentLine);
         TokenLocation[0].setColumn(currentColumn);
         TokenRange[0] = index;
 
-        while(isAlnum(peek())) buffer += String.valueOf(peek());
+        while(isAlnum(peek())) buffer += String.valueOf(consume());
 
-        if(currentColumn == 0) {
+        if(currentColumn == 1) {
             TokenLocation[1].setLine(currentLine - 1);
             TokenLocation[1].setColumn(holdPastColumn);
         } else {
@@ -153,6 +159,8 @@ public class Lexer {
 
     private void lexDigit() {
         Position[] TokenLocation = new Position[2];
+        TokenLocation[0] = new Position();
+        TokenLocation[1] = new Position();
         int[] TokenRange = new int[2];
 
         TokenLocation[0].setLine(currentLine);
@@ -168,25 +176,27 @@ public class Lexer {
             if(isFloat) ++decimalCount;
 
             if(peek() == '.' && !isFloat) isFloat = true;
-            else if (peek() == '.' && isFloat) throw new LexingException("Floating point number may only have one decimal point");
+            else if (peek() == '.' && isFloat) throw new LexingException("Line " + currentLine + "Column" + currentColumn + " : Floating point number may only have one decimal point");
 
             if(decimalCount == 7) isDouble = true;
-            else if(decimalCount == 16) throw new LexingException("Double value is too large");
+            else if(decimalCount == 16) throw new LexingException("Line " + currentLine + "Column" + currentColumn + " : Double value is too large");
 
             buffer += String.valueOf(this.consume());
         }
 
-        long number = Integer.parseInt(buffer);
-
-        if(number > -32768 && number < 32767) numberStatus = "short";
-        else if(number > -2147483648 && number < 2147483647) numberStatus = "int";
-        else if(number > -9223372036854775808L && number < 9223372036854775807L) numberStatus = "long";
-        else throw new LexingException("Number value too large");
-
         if(isDouble) numberStatus = "double";
         else if(isFloat) numberStatus = "float";
+        else {
+            long number = Integer.parseInt(buffer);
 
-        if(currentColumn == 0) {
+            if (number > -32768 && number < 32767) numberStatus = "short";
+            else if (number > -2147483648 && number < 2147483647) numberStatus = "int";
+            else if (number > -9223372036854775808L && number < 9223372036854775807L) numberStatus = "long";
+            else
+                throw new LexingException("Line " + currentLine + "Column" + currentColumn + " : Number value too large at");
+        }
+
+        if(currentColumn == 1) {
             TokenLocation[1].setLine(currentLine - 1);
             TokenLocation[1].setColumn(holdPastColumn);
         } else {
@@ -210,6 +220,8 @@ public class Lexer {
 
     private void lexCharacter() {
         Position[] TokenLocation = new Position[2];
+        TokenLocation[0] = new Position();
+        TokenLocation[1] = new Position();
         int[] TokenRange = new int[2];
 
         TokenLocation[0].setLine(currentLine);
@@ -218,11 +230,11 @@ public class Lexer {
 
         consume();
         if(peek() != '\0' && peek() != '\'') buffer = String.valueOf(consume());
-        else throw new LexingException("Char variable must contain a value");
+        else throw new LexingException("Line " + currentLine + "Column" + currentColumn + " : Char variable must contain a value");
 
-        if(peek() != '\'') throw new LexingException("Expected ' to end char value");
+        if(peek() != '\'') throw new LexingException("Line " + currentLine + "Column" + currentColumn + " : Expected ' to end char value");
 
-        if(currentColumn == 0) {
+        if(currentColumn == 1) {
             TokenLocation[1].setLine(currentLine - 1);
             TokenLocation[1].setColumn(holdPastColumn);
         } else {
@@ -237,45 +249,129 @@ public class Lexer {
         buffer = "";
     }
 
-    private void lexString() {}
+    private void lexString() {
+        Position[] TokenLocation = new Position[2];
+        TokenLocation[0] = new Position();
+        TokenLocation[1] = new Position();
+        int[] TokenRange = new int[2];
 
-    private void lexComment() {}
+        TokenLocation[0].setLine(currentLine);
+        TokenLocation[0].setColumn(currentColumn);
+        TokenRange[0] = index;
 
-    private void lexLineComment() {}
+        consume();
+        while(peek() != '"' && peek() != '\0') buffer += consume();
 
-    private void lexBlockComment() {}
+        if(peek() != '"') throw new LexingException("Line " + currentLine + "Column" + currentColumn + " : Expected \" to end string value");
+        else consume();
 
-    private void lexSymbol() {}
+        if(currentColumn == 1) {
+            TokenLocation[1].setLine(currentLine - 1);
+            TokenLocation[1].setColumn(holdPastColumn);
+        } else {
+            TokenLocation[1].setLine(currentLine);
+            TokenLocation[1].setColumn(currentColumn - 1);
+        }
 
-    private void lexUnarySymbol() {}
+        TokenRange[1] = index - 1;
 
-    private void lexBinarySymbol() {}
+        add_token(TokenType.StringLiteral, buffer, TokenLocation, TokenRange);
+        buffer = "";
+    }
 
-    private void lexBaseSymbol() {}
+    private void lexComment() {
+        if(peek(1) == '/') lexLineComment();
+        else if(peek(1) == '*') lexBlockComment();
+    }
+
+    private void lexLineComment() {
+        consume(); consume();
+
+        while(peek() != '\n') consume();
+    }
+
+    private void lexBlockComment() {
+        consume(); consume();
+
+        while(peek() != '*' && peek(1) != '/' && peek() != '\0') consume();
+        if(peek() == '*') consume();
+        if(peek() == '/') consume();
+    }
+
+    private void lexSymbol() {
+        Position[] TokenLocation = new Position[2];
+        TokenLocation[0] = new Position();
+        TokenLocation[1] = new Position();
+        int[] TokenRange = new int[2];
+
+        TokenLocation[0].setLine(currentLine);
+        TokenLocation[0].setColumn(currentColumn);
+        TokenRange[0] = index;
+
+        while(unaryOperators.containsKey(String.valueOf(peek())) ||
+                binary_comparativeOperators.containsKey(String.valueOf(peek())) ||
+                symbols.containsKey(String.valueOf(peek())) ||
+                peek() == '|') {
+            buffer += consume();
+            if(peek() == ':' || peek() == ';') break;
+        }
+
+        if(currentColumn == 1) {
+            TokenLocation[1].setLine(currentLine - 1);
+            TokenLocation[1].setColumn(holdPastColumn);
+        } else {
+            TokenLocation[1].setLine(currentLine);
+            TokenLocation[1].setColumn(currentColumn - 1);
+        }
+
+        TokenRange[1] = index - 1;
+
+        if(buffer.equals("-") || buffer.equals("+") || buffer.equals("*")) {
+            if(tokens.getLast().getType() == TokenType.Identifier ||
+                    tokens.getLast().getType() == TokenType.ShortLiteral ||
+                    tokens.getLast().getType() == TokenType.IntegerLiteral ||
+                    tokens.getLast().getType() == TokenType.LongLiteral ||
+                    tokens.getLast().getType() == TokenType.FloatLiteral ||
+                    tokens.getLast().getType() == TokenType.DoubleLiteral ||
+                    (tokens.getLast().getType() == TokenType.StringLiteral &&
+                            buffer.equals("+"))) {
+                add_token(TokenType.BinaryOperator, buffer, TokenLocation, TokenRange);
+            } else add_token(TokenType.UnaryOperator, buffer, TokenLocation, TokenRange);
+        } else if(unaryOperators.containsKey(buffer)) add_token(TokenType.UnaryOperator, buffer, TokenLocation, TokenRange);
+        else if(binary_comparativeOperators.containsKey(buffer)) add_token(binary_comparativeOperators.get(buffer), buffer, TokenLocation, TokenRange);
+        else if(symbols.containsKey(buffer)) add_token(symbols.get(buffer), TokenLocation, TokenRange);
+        else throw new LexingException(buffer);
+        buffer = "";
+    }
 
     private void lex() {
         if(Character.isAlphabetic(peek()) || peek() == '_') lexAlpha();
         else if(Character.isDigit(peek())) lexDigit();
         else if(peek() == '\'') lexCharacter();
         else if(peek() == '"') lexString();
-        else if(peek() == '/') lexComment();
-        else if(symbols.containsKey(peek()) ||
+        else if(peek() == '/' && (peek(1) == '*' || peek(1) == '/')) lexComment();
+        else if(symbols.containsKey(String.valueOf(peek())) ||
             unaryOperators.containsKey(String.valueOf(peek())) ||
-            binary_comparativeOperators.containsKey(String.valueOf(peek()))) lexSymbol();
+            binary_comparativeOperators.containsKey(String.valueOf(peek())) ||
+                peek() == '|') lexSymbol();
         else if(Character.isWhitespace(peek())) consume();
         else throw new LexingException(peek());
     }
 
     public List<Token> runLexer() {
-        while(peek() != '\0') { lex(); }
+        while(peek() != '\0') {
+            lex();
+        }
 
         Position[] positions = new Position[2];
+        positions[0] = new Position();
+        positions[1] = new Position();
         int[] range = new int[2];
 
-        positions[0].setLine(currentLine);
-        positions[1].setLine(currentLine);
-        positions[0].setColumn(currentColumn);
-        positions[1].setColumn(currentColumn);
+        positions[0].setLine(currentLine - 1);
+        positions[1].setLine(currentLine - 1);
+        positions[0].setColumn(holdPastColumn);
+        positions[1].setColumn(holdPastColumn);
 
         range[0] = range[1] = index;
 

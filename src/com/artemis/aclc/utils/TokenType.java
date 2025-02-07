@@ -19,6 +19,8 @@ public enum TokenType {
     Return,
 
     This,
+    Elif,
+    Error,
 
     // Literals
     Identifier,             // MyVariable, MyClass, MyMethod
@@ -52,7 +54,8 @@ public enum TokenType {
     Comma,                  // ,
     Dot,                    // .
     Colon,                  // :
-    SemiColon,               // ;
+    SemiColon,              // ;
+    At,                     // @
 
     EOF
 }
