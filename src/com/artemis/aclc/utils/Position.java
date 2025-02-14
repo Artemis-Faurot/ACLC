@@ -1,5 +1,6 @@
 package com.artemis.aclc.utils;
 
+@SuppressWarnings("unused")
 public class Position {
     private int line;
     private int column;

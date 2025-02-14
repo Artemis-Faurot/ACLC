@@ -7,13 +7,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@SuppressWarnings("unused")
 public class Lexer {
     public static class LexingException extends RuntimeException {
         public LexingException(String message) { super(message); }
         public LexingException(char character) { super("Unrecognized character found while lexing: " + character); }
     }
 
-    public static boolean isAlnum(char character) { return Character.isAlphabetic(character) || Character.isDigit(character) || character == '_'; }
+    public static boolean isAlphanumeric(char character) { return Character.isAlphabetic(character) || Character.isDigit(character) || character == '_'; }
 
     private static final Map<String, TokenType> keywords = new HashMap<>();
     private static final Map<String, TokenType> unaryOperators = new HashMap<>();
@@ -25,7 +26,7 @@ public class Lexer {
 
     static {
         final List<String> keywordStrings = List.of("Library", "class", "Private", "Public", "let",
-                "def", "if", "while", "for", "exit", "print", "return", "this", "elif", "error");
+                "def", "if", "while", "for", "exit", "print", "return", "this", "elif", "error", "import");
 
         final List<String> unaryOperatorStrings = List.of("-", "+", "!", "&", "*", "+=", "-=", "*=", "/=",
                 "^=", "%=", "++", "--");
@@ -37,7 +38,8 @@ public class Lexer {
 
         final List<TokenType> keywordTypes = List.of(TokenType.Library, TokenType.Class, TokenType.Private,
                 TokenType.Public, TokenType.Let, TokenType.Def, TokenType.If, TokenType.While, TokenType.For,
-                TokenType.Exit, TokenType.Print, TokenType.Return, TokenType.This, TokenType.Elif, TokenType.Error);
+                TokenType.Exit, TokenType.Print, TokenType.Return, TokenType.This, TokenType.Elif, TokenType.Error,
+                TokenType.Import);
 
         final List<TokenType> binary_comparativeOperatorTypes = List.of(TokenType.BinaryOperator,
                 TokenType.BinaryOperator, TokenType.BinaryOperator, TokenType.BinaryOperator, TokenType.BinaryOperator,
@@ -137,7 +139,7 @@ public class Lexer {
         TokenLocation[0].setColumn(currentColumn);
         TokenRange[0] = index;
 
-        while(isAlnum(peek())) buffer += String.valueOf(consume());
+        while(isAlphanumeric(peek())) buffer += String.valueOf(consume());
 
         if(currentColumn == 1) {
             TokenLocation[1].setLine(currentLine - 1);
@@ -191,9 +193,7 @@ public class Lexer {
 
             if (number > -32768 && number < 32767) numberStatus = "short";
             else if (number > -2147483648 && number < 2147483647) numberStatus = "int";
-            else if (number > -9223372036854775808L && number < 9223372036854775807L) numberStatus = "long";
-            else
-                throw new LexingException("Line " + currentLine + "Column" + currentColumn + " : Number value too large at");
+            else numberStatus = "long";
         }
 
         if(currentColumn == 1) {
@@ -285,13 +285,13 @@ public class Lexer {
     }
 
     private void lexLineComment() {
-        consume(); consume();
+        consume(2);
 
         while(peek() != '\n') consume();
     }
 
     private void lexBlockComment() {
-        consume(); consume();
+        consume(2);
 
         while(peek() != '*' && peek(1) != '/' && peek() != '\0') consume();
         if(peek() == '*') consume();

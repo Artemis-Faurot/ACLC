@@ -1,5 +1,8 @@
 package com.artemis.aclc.utils;
 
+import java.util.function.BinaryOperator;
+import java.util.function.UnaryOperator;
+
 public enum TokenType {
     // Keywords
     Library,
@@ -21,6 +24,8 @@ public enum TokenType {
     This,
     Elif,
     Error,
+
+    Import,
 
     // Literals
     Identifier,             // MyVariable, MyClass, MyMethod

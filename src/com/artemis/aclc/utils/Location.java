@@ -1,5 +1,6 @@
 package com.artemis.aclc.utils;
 
+@SuppressWarnings("unused")
 public class Location {
     private Position start;
     private Position end;

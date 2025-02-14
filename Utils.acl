@@ -59,7 +59,3 @@ Public:
         return sqrtBase(number, 15);
     }
 }
-
-// Example usage
-let result: double = Utils.Math.sqrt(20);
-print(result); // Output: 4.472135954999579
